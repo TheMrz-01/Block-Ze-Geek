@@ -1,0 +1,10 @@
+{
+    "manifest_version": 3,
+    "name": "Block-Ze-Geek",
+    "version": "1.0",
+    "description": "Block ze geeky geek geek",
+    "permissions": ["activeTab", "scripting"],
+    "action": {
+      "default_popup": "popup.html"
+    }
+  }
