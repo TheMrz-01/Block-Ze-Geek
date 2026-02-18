@@ -41,3 +41,37 @@ async function handleNavigation(details) {
 
 chrome.webNavigation.onBeforeNavigate.addListener(handleNavigation);
 chrome.webNavigation.onHistoryStateUpdated.addListener(handleNavigation);
+
+
+async function checkExpiration() {
+    const data = await chrome.storage.local.get(["unlockUntil", "blocked"]);
+    const unlockUntil = data.unlockUntil || 0;
+    const blocked = data.blocked || {};
+
+    const now = Date.now();
+
+    if (unlockUntil && now >= unlockUntil) {
+
+        await chrome.storage.local.set({ unlockUntil: 0 });
+
+        const tabs = await chrome.tabs.query({});
+
+        for (const tab of tabs) {
+            if (!tab.url) continue;
+
+            for (const site in BLOCKED_SITES) {
+                if (!blocked[site]) continue;
+
+                const patterns = BLOCKED_SITES[site];
+
+                for (const pattern of patterns) {
+                    if (tab.url.includes(pattern)) {
+                        chrome.tabs.reload(tab.id);
+                    }
+                }
+            }
+        }
+    }
+}
+
+setInterval(checkExpiration, 1000);

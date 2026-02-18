@@ -32,9 +32,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     });
 
-    // --------------------------
-    // Time formatting
-    // --------------------------
     function formatTime(ms) {
         const totalSeconds = Math.floor(ms / 1000);
         const minutes = Math.floor(totalSeconds / 60);
@@ -60,30 +57,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         return (minutes * 60 + seconds) * 1000;
     }
 
-    // --------------------------
-    // Elements
-    // --------------------------
     const slider = document.getElementById("timeSlider");
     const selectedTime = document.getElementById("selectedTime");
     const remainingTime = document.getElementById("remainingTime");
     const saveButton = document.getElementById("saveTime");
 
-    // Initial sync
     slider.value = unlockDurationMs / 1000;
     selectedTime.textContent = formatTime(unlockDurationMs);
 
-    // --------------------------
-    // Slider -> Text
-    // --------------------------
     slider.addEventListener("input", () => {
         const ms = slider.value * 1000;
         unlockDurationMs = ms;
         selectedTime.textContent = formatTime(ms);
     });
 
-    // --------------------------
-    // Text (editable) -> Slider
-    // --------------------------
     selectedTime.addEventListener("click", () => {
         selectedTime.contentEditable = true;
         selectedTime.focus();
@@ -98,19 +85,16 @@ document.addEventListener("DOMContentLoaded", async () => {
             const minMs = slider.min * 1000;
             const maxMs = slider.max * 1000;
 
-            // Clamp value
             const clamped = Math.min(Math.max(parsedMs, minMs), maxMs);
 
             unlockDurationMs = clamped;
 
-            // Sync slider immediately
             slider.value = clamped / 1000;
 
             selectedTime.textContent = formatTime(clamped);
 
             await chrome.storage.local.set({ unlockDurationMs });
         } else {
-            // Invalid input → revert
             selectedTime.textContent = formatTime(unlockDurationMs);
         }
     });
@@ -122,17 +106,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     });
 
-    // --------------------------
-    // Save Button
-    // --------------------------
     saveButton.addEventListener("click", async () => {
         unlockDurationMs = slider.value * 1000;
         await chrome.storage.local.set({ unlockDurationMs });
     });
 
-    // --------------------------
-    // Remaining countdown
-    // --------------------------
     function updateRemaining() {
         const now = Date.now();
 
