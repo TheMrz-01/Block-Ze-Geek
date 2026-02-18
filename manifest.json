@@ -17,9 +17,9 @@
         "default_icon": "/assets/doomscroll.png"
     },
     "icons": {
-        "16": "/assets/doomscroll.ico",
-        "32": "/assets/doomscroll.ico",
-        "48": "/assets/doomscroll.ico",
-        "128": "/assets/doomscroll.ico"
+        "16": "/assets/16x16.png",
+        "32": "/assets/32x32.png",
+        "48": "/assets/48x48.png",
+        "128": "/assets/128x128.png"
     }
 }
