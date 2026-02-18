@@ -5,7 +5,7 @@ const BLOCKED_SITES = {
     reddit: ["reddit.com"]
 };
 
-chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
+async function handleNavigation(details) {
     if (details.frameId !== 0) return;
 
     const data = await chrome.storage.local.get(["blocked", "allowedHost"]);
@@ -39,4 +39,8 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
             }
         }
     }
-});
+}
+
+chrome.webNavigation.onBeforeNavigate.addListener(handleNavigation);
+
+chrome.webNavigation.onHistoryStateUpdated.addListener(handleNavigation);
