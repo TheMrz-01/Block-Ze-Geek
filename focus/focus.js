@@ -20,20 +20,19 @@ input.addEventListener("paste", e => e.preventDefault());
 input.addEventListener("contextmenu", e => e.preventDefault());
 
 button.addEventListener("click", async () => {
-    button.addEventListener("click", async () => {
-        if (input.value.trim() === phrase) {
-    
-            const data = await chrome.storage.local.get("unlockDurationMs");
-            const durationMs = data.unlockDurationMs ?? 300000;
-    
-            const unlockUntil = Date.now() + durationMs;
-    
-            await chrome.storage.local.set({ unlockUntil });
-    
-            window.location.href = target;
-    
-        } else {
-            alert("Incorrect. Try again.");
-        }
-    });
+    if (input.value.trim() === phrase) {
+
+        const data = await chrome.storage.local.get("unlockDurationMs");
+        const durationMs = data.unlockDurationMs ?? 300000;
+
+        const unlockUntil = Date.now() + durationMs;
+
+        await chrome.storage.local.set({ unlockUntil });
+
+        // Redirect immediately
+        window.location.href = target;
+
+    } else {
+        alert("Incorrect. Try again.");
+    }
 });

@@ -43,6 +43,24 @@ input[type="range"] {
     margin: 10px 0;
 }
 
+.editable-time {
+    cursor: pointer;
+    font-weight: bold;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+.editable-time:hover {
+    background: #eeeeee;
+}
+
+.time-input {
+    width: 60px;
+    text-align: center;
+    font-size: 13px;
+}
+
 button {
     width: 100%;
     padding: 8px;
