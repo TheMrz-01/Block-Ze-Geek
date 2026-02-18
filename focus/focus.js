@@ -16,11 +16,21 @@ const button = document.querySelector(".container #submit");
 const phrase = phrases[Math.floor(Math.random() * phrases.length)];
 challengeElement.textContent = `"${phrase}"`;
 
-input.addEventListener('paste', e => e.preventDefault());
+// Disable paste
+input.addEventListener("paste", e => e.preventDefault());
+input.addEventListener("contextmenu", e => e.preventDefault());
 
-button.addEventListener("click", () => {
+button.addEventListener("click", async () => {
     if (input.value.trim() === phrase) {
+
+        const urlObj = new URL(target);
+
+        await chrome.storage.local.set({
+            allowedHost: urlObj.hostname
+        });
+
         window.location.href = target;
+
     } else {
         alert("Incorrect. Try again.");
     }

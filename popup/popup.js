@@ -1,38 +1,28 @@
-const phrases = [
-    "yes i want to waste my time",
-    "i choose distraction over progress",
-    "i am avoiding meaningful work",
-    "i accept that this does not help my goals",
-    "this is not aligned with my future self"
-];
+const sites = ["youtube", "instagram", "x", "reddit"];
 
-const params = new URLSearchParams(window.location.search);
-const target = params.get("target");
+document.addEventListener("DOMContentLoaded", async () => {
 
-const challengeElement = document.getElementById("challenge");
-const input = document.getElementById("input");
-const button = document.getElementById("submit");
+    let data = await chrome.storage.local.get("blocked");
+    let blocked = data.blocked;
 
-const phrase = phrases[Math.floor(Math.random() * phrases.length)];
-challengeElement.textContent = `"${phrase}"`;
+    if (!blocked) {
+        blocked = {
+            youtube: false,
+            instagram: false,
+            x: false,
+            reddit: false
+        };
 
-input.addEventListener("paste", (e) => {
-    e.preventDefault();
-});
-
-input.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
-});
-
-button.addEventListener("click", async () => {
-    if (input.value.trim() === phrase) {
-
-        // ✅ Save temporary allow
-        await chrome.storage.local.set({ allowedUrl: target });
-
-        window.location.href = target;
-
-    } else {
-        alert("Incorrect. Try again.");
+        await chrome.storage.local.set({ blocked });
     }
+
+    sites.forEach(site => {
+        const checkbox = document.getElementById(site);
+        checkbox.checked = blocked[site];
+
+        checkbox.addEventListener("change", async () => {
+            blocked[site] = checkbox.checked;
+            await chrome.storage.local.set({ blocked });
+        });
+    });
 });
