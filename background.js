@@ -8,15 +8,13 @@ const BLOCKED_SITES = {
 async function handleNavigation(details) {
     if (details.frameId !== 0) return;
 
-    const data = await chrome.storage.local.get(["blocked", "allowedHost"]);
+    const data = await chrome.storage.local.get(["blocked", "unlockUntil"]);
     const blocked = data.blocked || {};
-    const allowedHost = data.allowedHost;
+    const unlockUntil = data.unlockUntil || 0;
 
-    const urlObj = new URL(details.url);
-    const hostname = urlObj.hostname;
+    const now = Date.now();
 
-    if (allowedHost && hostname.includes(allowedHost)) {
-        await chrome.storage.local.remove("allowedHost");
+    if (now < unlockUntil) {
         return;
     }
 
@@ -42,5 +40,4 @@ async function handleNavigation(details) {
 }
 
 chrome.webNavigation.onBeforeNavigate.addListener(handleNavigation);
-
 chrome.webNavigation.onHistoryStateUpdated.addListener(handleNavigation);

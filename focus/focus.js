@@ -23,11 +23,12 @@ input.addEventListener("contextmenu", e => e.preventDefault());
 button.addEventListener("click", async () => {
     if (input.value.trim() === phrase) {
 
-        const urlObj = new URL(target);
+        const data = await chrome.storage.local.get("unlockDuration");
+        const minutes = data.unlockDuration || 0;
 
-        await chrome.storage.local.set({
-            allowedHost: urlObj.hostname
-        });
+        const unlockUntil = Date.now() + minutes * 60 * 1000;
+
+        await chrome.storage.local.set({ unlockUntil });
 
         window.location.href = target;
 
