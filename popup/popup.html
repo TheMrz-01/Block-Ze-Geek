@@ -1,53 +1,61 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="popup.css">
-    <title>Block-Ze-Geek</title>
 </head>
 <body>
-    <h3>Block Sites</h3>
 
-    <label>
-        <input type="checkbox" id="youtube">
-        YouTube Shorts
-    </label>
+    <div class="container">
 
-    <label>
-        <input type="checkbox" id="instagram">
-        Instagram
-    </label>
+        <h2>Mindful Focus</h2>
 
-    <label>
-        <input type="checkbox" id="x">
-        X (Twitter)
-    </label>
+        <div class="section">
+            <h4>Blocked Sites</h4>
 
-    <label>
-        <input type="checkbox" id="reddit">
-        Reddit
-    </label>
+            <label class="checkbox">
+                <input type="checkbox" id="youtube">
+                YouTube Shorts
+            </label>
 
+            <label class="checkbox">
+                <input type="checkbox" id="instagram">
+                Instagram
+            </label>
 
-    <h4>Unlock Duration</h4>
+            <label class="checkbox">
+                <input type="checkbox" id="x">
+                X (Twitter)
+            </label>
 
-    <label>
-        Selected: <span id="selectedTime">05:00</span>
-    </label>
+            <label class="checkbox">
+                <input type="checkbox" id="reddit">
+                Reddit
+            </label>
+        </div>
 
-    <input type="range"
-        id="timeSlider"
-        min="0"
-        max="1800"
-        step="1"
-        value="300">
+        <div class="section">
+            <h4>Unlock Duration</h4>
+        
+            <div class="time-display">
+                Selected: <span id="selectedTime">05:00</span>
+            </div>
+        
+            <input type="range"
+                   id="timeSlider"
+                   min="0"
+                   max="1800"
+                   step="1"
+                   value="300">
+        
+            <button id="saveTime">Set Time</button>
+        
+            <div class="remaining-box">
+                <div class="remaining-label">Time Remaining</div>
+                <div class="remaining-value" id="remainingTime">00:00</div>
+            </div>
+        </div>
 
-    <button id="saveTime">Set Time</button>
-
-    <p>
-        Remaining: <span id="remainingTime">00:00</span>
-    </p>
+    </div>
 
     <script src="popup.js"></script>
 </body>

@@ -1,40 +1,89 @@
 body {
-    width: 200px;     
-    min-height: 75px; 
     margin: 0;
-    padding: 16px;
-    box-sizing: border-box;
+    padding: 0;
+    width: 320px;
     font-family: Arial, sans-serif;
+    background: #f2f2f2;
+}
+
+.container {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    margin: 12px;
+}
+
+h2 {
+    margin: 0 0 15px 0;
+    font-size: 18px;
+    text-align: center;
+}
+
+.section {
+    margin-bottom: 20px;
+}
+
+.section h4 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+input[type="range"] {
+    width: 100%;
+    margin: 10px 0;
 }
 
 button {
     width: 100%;
-    padding: 10px;
-    margin-bottom: 10px;
-  
-    background-color: #111;
-    color: white;
+    padding: 8px;
     border: none;
     border-radius: 6px;
-  
+    background-color: #4CAF50;
+    color: white;
+    font-size: 13px;
     cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-  
     transition: background 0.2s ease;
-  }
-  
-  button:hover {
-    background-color: #333;
 }
 
-h1 {
-    font-size: 18px;
-    margin-bottom: 12px;
+button:hover {
+    background-color: #43a047;
 }
-  
-label {
-    font-size: 14px;
-    display: block;
-    margin-bottom: 8px;
+
+.time-display {
+    font-size: 13px;
+    margin-top: 6px;
+    margin-bottom: 6px;
+}
+
+.remaining-box {
+    margin-top: 14px;
+    padding: 12px;
+    border-radius: 8px;
+    background: #f7f7f7;
+    text-align: center;
+    border: 1px solid #e5e5e5;
+}
+
+.remaining-label {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+}
+
+.remaining-value {
+    font-size: 20px;
+    font-weight: bold;
+    color: #222;
+    font-variant-numeric: tabular-nums;
 }
