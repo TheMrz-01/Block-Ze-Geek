@@ -1,10 +1,25 @@
 {
     "manifest_version": 3,
     "name": "Block-Ze-Geek",
-    "version": "1.0",
+    "version": "0.1",
     "description": "Block ze geeky geek geek",
-    "permissions": ["activeTab", "scripting"],
+    "permissions": [
+        "storage",
+        "declarativeNetRequest",
+        "declarativeNetRequestWithHostAccess"],
+    "host_permissions": ["<all_urls>"],
+    "background" : {
+        "service_worker": "background.js"
+    },
     "action": {
-      "default_popup": "popup.html"
+        "default_popup": "/popup/popup.html",
+        "default_icon": "/assets/doomscroll.png"
+    },
+    "content_scripts": [{
+        "matches": ["*://*.youtube.com/*"],
+        "js": ["content.js"],
+        "run_at": "document_idle"
+     }],
+    "icons": {
     }
-  }
+}
