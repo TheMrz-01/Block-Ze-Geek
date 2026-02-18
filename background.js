@@ -1,82 +1,40 @@
-const RULES = {
-    x: {
-      id: 100,
-      rule: {
-        id: 100,
-        priority: 1,
-        action: { type: "block" },
-        condition: {
-          urlFilter: "||x.com^",
-          resourceTypes: ["main_frame"]
-        }
+const BLOCKED_SITES = {
+  youtube: ["youtube.com/shorts"],
+  instagram: ["instagram.com"],
+  x: ["x.com", "twitter.com"],
+  reddit: ["reddit.com"]
+};
+
+chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
+  if (details.frameId !== 0) return;
+
+  const { blocked, allowedUrl } = await chrome.storage.local.get(["blocked", "allowedUrl"]);
+  if (!blocked) return;
+
+  const url = details.url;
+
+  if (allowedUrl && url.includes(allowedUrl)) {
+      await chrome.storage.local.remove("allowedUrl");
+      return;
+  }
+
+  for (const site in BLOCKED_SITES) {
+      if (!blocked[site]) continue;
+
+      const patterns = BLOCKED_SITES[site];
+
+      for (const pattern of patterns) {
+          if (url.includes(pattern)) {
+
+              if (url.includes("focus.html")) return;
+
+              const redirectUrl = chrome.runtime.getURL(
+                  `focus/focus.html?target=${encodeURIComponent(url)}`
+              );
+
+              chrome.tabs.update(details.tabId, { url: redirectUrl });
+              return;
+          }
       }
-    },
-  
-    reddit: {
-      id: 101,
-      rule: {
-        id: 101,
-        priority: 1,
-        action: { type: "block" },
-        condition: {
-          urlFilter: "||reddit.com^",
-          resourceTypes: ["main_frame"]
-        }
-      }
-    },
-  
-    instagram: {
-      id: 102,
-      rule: {
-        id: 102,
-        priority: 1,
-        action: { type: "block" },
-        condition: {
-          urlFilter: "||instagram.com^",
-          resourceTypes: ["main_frame"]
-        }
-      }
-    },
-  
-    shorts: {
-      id: 103,
-      rule: {
-        id: 103,
-        priority: 1,
-        action: { type: "block" },
-        condition: {
-            urlFilter: "|https://www.youtube.com/shorts",
-            "resourceTypes": [
-            "main_frame",
-            "sub_frame",
-            "xmlhttprequest",
-            "script"
-          ]
-        }
-      }
-    }
-  };
-  
-  
-  // Handle popup toggle messages
-  chrome.runtime.onMessage.addListener(async (message) => {
-    if (message.type !== "toggle") return;
-  
-    const { site, enabled } = message;
-    const ruleData = RULES[site];
-    if (!ruleData) return;
-  
-    if (enabled) {
-      await chrome.declarativeNetRequest.updateDynamicRules({
-        addRules: [ruleData.rule],
-        removeRuleIds: []
-      });
-    } else {
-      await chrome.declarativeNetRequest.updateDynamicRules({
-        addRules: [],
-        removeRuleIds: [ruleData.id]
-      });
-    }
-  
-    await chrome.storage.local.set({ [site]: enabled });
-  });
+  }
+});

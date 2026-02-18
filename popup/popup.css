@@ -1,0 +1,40 @@
+body {
+    width: 200px;     
+    min-height: 75px; 
+    margin: 0;
+    padding: 16px;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+
+button {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+  
+    background-color: #111;
+    color: white;
+    border: none;
+    border-radius: 6px;
+  
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+  
+    transition: background 0.2s ease;
+  }
+  
+  button:hover {
+    background-color: #333;
+}
+
+h1 {
+    font-size: 18px;
+    margin-bottom: 12px;
+}
+  
+label {
+    font-size: 14px;
+    display: block;
+    margin-bottom: 8px;
+}

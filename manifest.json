@@ -5,8 +5,9 @@
     "description": "Block ze geeky geek geek",
     "permissions": [
         "storage",
-        "declarativeNetRequest",
-        "declarativeNetRequestWithHostAccess"],
+        "tabs",
+        "webNavigation"
+    ],
     "host_permissions": ["<all_urls>"],
     "background" : {
         "service_worker": "background.js"
@@ -15,11 +16,10 @@
         "default_popup": "/popup/popup.html",
         "default_icon": "/assets/doomscroll.png"
     },
-    "content_scripts": [{
-        "matches": ["*://*.youtube.com/*"],
-        "js": ["content.js"],
-        "run_at": "document_idle"
-     }],
     "icons": {
+        "16": "/assets/doomscroll.ico",
+        "32": "/assets/doomscroll.ico",
+        "48": "/assets/doomscroll.ico",
+        "128": "/assets/doomscroll.ico"
     }
 }

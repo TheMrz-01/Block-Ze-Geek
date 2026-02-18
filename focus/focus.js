@@ -9,29 +9,18 @@ const phrases = [
 const params = new URLSearchParams(window.location.search);
 const target = params.get("target");
 
-const challengeElement = document.getElementById("challenge");
-const input = document.getElementById("input");
-const button = document.getElementById("submit");
+const challengeElement = document.querySelector(".container #challenge");
+const input = document.querySelector(".container #input");
+const button = document.querySelector(".container #submit");
 
 const phrase = phrases[Math.floor(Math.random() * phrases.length)];
 challengeElement.textContent = `"${phrase}"`;
 
-input.addEventListener("paste", (e) => {
-    e.preventDefault();
-});
+input.addEventListener('paste', e => e.preventDefault());
 
-input.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
-});
-
-button.addEventListener("click", async () => {
+button.addEventListener("click", () => {
     if (input.value.trim() === phrase) {
-
-        // ✅ Save temporary allow
-        await chrome.storage.local.set({ allowedUrl: target });
-
         window.location.href = target;
-
     } else {
         alert("Incorrect. Try again.");
     }
