@@ -2,10 +2,14 @@ const sites = ["youtube", "instagram", "x", "reddit"];
 
 document.addEventListener("DOMContentLoaded", async () => {
 
-    let data = await chrome.storage.local.get(["blocked", "unlockDuration", "unlockUntil"]);
+    let data = await chrome.storage.local.get([
+        "blocked",
+        "unlockDurationMs",
+        "unlockUntil"
+    ]);
 
     let blocked = data.blocked;
-    let unlockDuration = data.unlockDuration ?? 5;
+    let unlockDurationMs = data.unlockDurationMs ?? 300000; // 5 min default
     let unlockUntil = data.unlockUntil ?? 0;
 
     if (!blocked) {
@@ -28,28 +32,49 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     });
 
+    function formatTime(ms) {
+        const totalSeconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+
+        return (
+            String(minutes).padStart(2, "0") +
+            ":" +
+            String(seconds).padStart(2, "0")
+        );
+    }
+
+    // --------------------------
+    // Slider logic
+    // --------------------------
     const slider = document.getElementById("timeSlider");
-    const timeValue = document.getElementById("timeValue");
+    const selectedTime = document.getElementById("selectedTime");
     const remainingTime = document.getElementById("remainingTime");
+    const saveButton = document.getElementById("saveTime");
 
-    slider.value = unlockDuration;
-    timeValue.textContent = unlockDuration;
+    slider.value = unlockDurationMs / 1000;
+    selectedTime.textContent = formatTime(unlockDurationMs);
 
-    slider.addEventListener("input", async () => {
-        timeValue.textContent = slider.value;
+    slider.addEventListener("input", () => {
+        const ms = slider.value * 1000;
+        selectedTime.textContent = formatTime(ms);
+    });
+
+    saveButton.addEventListener("click", async () => {
+        const ms = slider.value * 1000;
         await chrome.storage.local.set({
-            unlockDuration: Number(slider.value)
+            unlockDurationMs: ms
         });
     });
 
-    // --- Remaining time display ---
     function updateRemaining() {
         const now = Date.now();
+
         if (unlockUntil > now) {
-            const minutesLeft = Math.ceil((unlockUntil - now) / 60000);
-            remainingTime.textContent = minutesLeft;
+            const remainingMs = unlockUntil - now;
+            remainingTime.textContent = formatTime(remainingMs);
         } else {
-            remainingTime.textContent = 0;
+            remainingTime.textContent = "00:00";
         }
     }
 

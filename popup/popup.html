@@ -29,15 +29,25 @@
         Reddit
     </label>
 
-    <hr>
+
+    <h4>Unlock Duration</h4>
 
     <label>
-        Unlock duration: <span id="timeValue">5</span> min
+        Selected: <span id="selectedTime">05:00</span>
     </label>
-    
-    <input type="range" id="timeSlider" min="0" max="30" value="5">
-    
-    <p>Remaining: <span id="remainingTime">0</span> min</p>
+
+    <input type="range"
+        id="timeSlider"
+        min="0"
+        max="1800"
+        step="1"
+        value="300">
+
+    <button id="saveTime">Set Time</button>
+
+    <p>
+        Remaining: <span id="remainingTime">00:00</span>
+    </p>
 
     <script src="popup.js"></script>
 </body>

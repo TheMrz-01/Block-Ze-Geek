@@ -16,23 +16,24 @@ const button = document.querySelector(".container #submit");
 const phrase = phrases[Math.floor(Math.random() * phrases.length)];
 challengeElement.textContent = `"${phrase}"`;
 
-// Disable paste
 input.addEventListener("paste", e => e.preventDefault());
 input.addEventListener("contextmenu", e => e.preventDefault());
 
 button.addEventListener("click", async () => {
-    if (input.value.trim() === phrase) {
-
-        const data = await chrome.storage.local.get("unlockDuration");
-        const minutes = data.unlockDuration || 0;
-
-        const unlockUntil = Date.now() + minutes * 60 * 1000;
-
-        await chrome.storage.local.set({ unlockUntil });
-
-        window.location.href = target;
-
-    } else {
-        alert("Incorrect. Try again.");
-    }
+    button.addEventListener("click", async () => {
+        if (input.value.trim() === phrase) {
+    
+            const data = await chrome.storage.local.get("unlockDurationMs");
+            const durationMs = data.unlockDurationMs ?? 300000;
+    
+            const unlockUntil = Date.now() + durationMs;
+    
+            await chrome.storage.local.set({ unlockUntil });
+    
+            window.location.href = target;
+    
+        } else {
+            alert("Incorrect. Try again.");
+        }
+    });
 });
