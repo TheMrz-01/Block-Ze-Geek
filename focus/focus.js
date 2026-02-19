@@ -13,6 +13,7 @@ const challengeElement = document.querySelector(".container #challenge");
 const input = document.querySelector(".container #input");
 const button = document.querySelector(".container #submit");
 
+// defines phrase variable as a constant (cannot be changed)
 const phrase = phrases[Math.floor(Math.random() * phrases.length)];
 challengeElement.textContent = `"${phrase}"`;
 
