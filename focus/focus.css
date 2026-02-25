@@ -11,17 +11,24 @@ body {
     text-align: center;
     background: white;
     padding: 30px;
-    border-radius: 8px;
+    border-radius: 8px; 
     box-shadow: 0 5px 20px rgba(0,0,0,0.1);
 }
 
 input {
+    text-align: center;
     padding: 8px;
     width: 300px;
     margin-top: 10px;
 }
 
-button {
+input::placeholder {
+    color: #9f9f9f;
+}
+
+span {
+    text-align: center;
+    font-style: italic;
+    color: #9f9f9f;
     margin-top: 10px;
-    padding: 8px 16px;
 }
