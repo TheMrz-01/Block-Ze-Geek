@@ -35,24 +35,74 @@
 
         <div class="section">
             <h4>Unlock Duration</h4>
-        
-            <div class="time-display">
-                Selected:
-                <span id="selectedTime" class="editable-time">05:00</span>
+
+            <div class="feature-toggle">
+                <span class="feature-status">Unlock duration: <b id="unlockDurationStatus">Enabled</b></span>
+                <button id="toggleUnlockDuration" class="toggle-button" type="button">Disable</button>
             </div>
-        
-            <input type="range"
-                   id="timeSlider"
-                   min="0"
-                   max="1800"
-                   step="1"
-                   value="300">
-        
-            <button id="saveTime">Set Time</button>
-        
-            <div class="remaining-box">
-                <div class="remaining-label">Time Remaining</div>
-                <div class="remaining-value" id="remainingTime">00:00</div>
+
+            <div id="unlockControls">
+                <div class="time-display">
+                    Selected:
+                    <span id="selectedTime" class="editable-time">05:00</span>
+                </div>
+
+                <input type="range"
+                       id="timeSlider"
+                       min="0"
+                       max="1800"
+                       step="1"
+                       value="300">
+
+                <button id="saveTime" type="button">Set Time</button>
+
+                <div class="remaining-box">
+                    <div class="remaining-label">Time Remaining</div>
+                    <div class="remaining-value" id="remainingTime">00:00</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h4>Eeepy Time</h4>
+
+            <div class="feature-toggle">
+                <span class="feature-status">Eeepy time: <b id="eepyTimeStatus">Enabled</b></span>
+                <button id="toggleEepyTime" class="toggle-button" type="button">Disable</button>
+            </div>
+
+            <div id="eepyControls">
+                <div class="sleep-control">
+                    <div class="time-display">
+                        Going eepy time:
+                        <span id="sleepStartTime" class="editable-time">23:00</span>
+                    </div>
+
+                    <input type="range"
+                           id="sleepStartSlider"
+                           min="0"
+                           max="86340"
+                           step="60"
+                           value="82800">
+
+                    <button id="saveSleepStart" type="button">Set Going Eepy Time</button>
+                </div>
+
+                <div class="sleep-control">
+                    <div class="time-display">
+                        Gety up up time:
+                        <span id="sleepEndTime" class="editable-time">07:00</span>
+                    </div>
+
+                    <input type="range"
+                           id="sleepEndSlider"
+                           min="0"
+                           max="86340"
+                           step="60"
+                           value="25200">
+
+                    <button id="saveSleepEnd" type="button">Set Gety Up Up Time</button>
+                </div>
             </div>
         </div>
 

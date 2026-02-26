@@ -24,6 +24,39 @@ h2 {
     margin-bottom: 20px;
 }
 
+.section-disabled {
+    opacity: 0.55;
+}
+
+.feature-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.feature-status {
+    font-size: 12px;
+    color: #444;
+}
+
+.toggle-button {
+    width: auto;
+    margin-top: 0;
+    padding: 6px 10px;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.sleep-control {
+    margin-bottom: 14px;
+}
+
+.sleep-control:last-child {
+    margin-bottom: 0;
+}
+
 .section h4 {
     margin: 0 0 10px 0;
     font-size: 14px;
@@ -55,6 +88,10 @@ input[type="range"] {
     background: #eeeeee;
 }
 
+.editable-time.is-disabled {
+    cursor: not-allowed;
+}
+
 .time-input {
     width: 60px;
     text-align: center;
@@ -71,6 +108,7 @@ button {
     font-size: 13px;
     cursor: pointer;
     transition: background 0.2s ease;
+    margin-top: 4px;
 }
 
 button:hover {

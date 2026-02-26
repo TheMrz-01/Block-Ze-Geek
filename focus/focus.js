@@ -19,17 +19,23 @@ input.addEventListener("paste", e => e.preventDefault());
 input.addEventListener("contextmenu", e => e.preventDefault());
 
 input.addEventListener("keydown", async (event) => {
-    if(event.key === "Enter"){
-        if (input.value.trim() === phrase.trim() && event.key === "Enter") {
+    if (event.key === "Enter") {
+        if (input.value.trim() === phrase.trim()) {
 
-            const data = await chrome.storage.local.get("unlockDurationMs");
+            const data = await chrome.storage.local.get([
+                "unlockDurationMs",
+                "unlockDurationEnabled"
+            ]);
             const durationMs = data.unlockDurationMs ?? 300000;
+            const unlockDurationEnabled = data.unlockDurationEnabled ?? true;
 
-            const unlockUntil = Date.now() + durationMs;
+            if (unlockDurationEnabled) {
+                const unlockUntil = Date.now() + durationMs;
+                await chrome.storage.local.set({ unlockUntil });
+            } else {
+                await chrome.storage.local.set({ unlockUntil: 0 });
+            }
 
-            await chrome.storage.local.set({ unlockUntil });
-
-            // Redirect immediately
             window.location.href = target;
 
         } else {
