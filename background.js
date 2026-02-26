@@ -1,9 +1,53 @@
 const BLOCKED_SITES = {
-    youtube: ["youtube.com/shorts"],
-    instagram: ["instagram.com"],
-    x: ["x.com", "twitter.com"],
-    reddit: ["reddit.com"]
+    youtube: [{ domain: "youtube.com", pathPrefix: "/shorts" }],
+    instagram: [{ domain: "instagram.com" }],
+    x: [{ domain: "x.com" }, { domain: "twitter.com" }],
+    reddit: [{ domain: "reddit.com" }]
 };
+
+function parseUrl(url) {
+    try {
+        return new URL(url);
+    } catch {
+        return null;
+    }
+}
+
+function hostMatches(hostname, domain) {
+    return hostname === domain || hostname.endsWith(`.${domain}`);
+}
+
+function matchesSite(urlObject, site) {
+    const rules = BLOCKED_SITES[site] || [];
+    const hostname = urlObject.hostname.toLowerCase();
+    const pathname = urlObject.pathname.toLowerCase();
+
+    for (const rule of rules) {
+        if (!hostMatches(hostname, rule.domain)) {
+            continue;
+        }
+
+        if (rule.pathPrefix && !pathname.startsWith(rule.pathPrefix)) {
+            continue;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+function shouldBlockUrl(url, blocked) {
+    const parsedUrl = parseUrl(url);
+    if (!parsedUrl) return false;
+
+    for (const site in BLOCKED_SITES) {
+        if (!blocked[site]) continue;
+        if (matchesSite(parsedUrl, site)) return true;
+    }
+
+    return false;
+}
 
 async function handleNavigation(details) {
     if (details.frameId !== 0) return;
@@ -18,24 +62,13 @@ async function handleNavigation(details) {
         return;
     }
 
-    for (const site in BLOCKED_SITES) {
-        if (!blocked[site]) continue;
+    if (shouldBlockUrl(details.url, blocked)) {
+        const redirectUrl = chrome.runtime.getURL(
+            `focus/focus.html?target=${encodeURIComponent(details.url)}`
+        );
 
-        const patterns = BLOCKED_SITES[site];
-
-        for (const pattern of patterns) {
-            if (details.url.includes(pattern)) {
-
-                if (details.url.includes("focus.html")) return;
-
-                const redirectUrl = chrome.runtime.getURL(
-                    `focus/focus.html?target=${encodeURIComponent(details.url)}`
-                );
-
-                chrome.tabs.update(details.tabId, { url: redirectUrl });
-                return;
-            }
-        }
+        chrome.tabs.update(details.tabId, { url: redirectUrl });
+        return;
     }
 }
 
@@ -59,16 +92,8 @@ async function checkExpiration() {
         for (const tab of tabs) {
             if (!tab.url) continue;
 
-            for (const site in BLOCKED_SITES) {
-                if (!blocked[site]) continue;
-
-                const patterns = BLOCKED_SITES[site];
-
-                for (const pattern of patterns) {
-                    if (tab.url.includes(pattern)) {
-                        chrome.tabs.reload(tab.id);
-                    }
-                }
+            if (shouldBlockUrl(tab.url, blocked)) {
+                chrome.tabs.reload(tab.id);
             }
         }
     }

@@ -14,14 +14,13 @@ const input = document.querySelector(".container #input");
 
 const phrase = phrases[Math.floor(Math.random() * phrases.length)];
 challengeElement.textContent = `"${phrase}"`;
-const trimmedPhrase = phrase.trim();
 
 input.addEventListener("paste", e => e.preventDefault());
 input.addEventListener("contextmenu", e => e.preventDefault());
 
 input.addEventListener("keydown", async (event) => {
     if(event.key === "Enter"){
-        if (input.value.trim() === trimmedPhrase && event.key === "Enter") {
+        if (input.value.trim() === phrase.trim() && event.key === "Enter") {
 
             const data = await chrome.storage.local.get("unlockDurationMs");
             const durationMs = data.unlockDurationMs ?? 300000;
