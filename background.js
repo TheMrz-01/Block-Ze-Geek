@@ -7,6 +7,7 @@ const BLOCKED_SITES = {
 
 const DEFAULT_SLEEP_START_SECONDS = 23 * 3600;
 const DEFAULT_SLEEP_END_SECONDS = 7 * 3600;
+const OVERLAY_VERIFY_INTERVAL_MS = 3000;
 
 let wasSleepWindowActive = null;
 
@@ -94,6 +95,54 @@ function getFeatureFlags(data) {
     return { unlockDurationEnabled, eepyTimeEnabled };
 }
 
+function buildFocusUrl(targetUrl) {
+    return chrome.runtime.getURL(
+        `focus/focus.html?target=${encodeURIComponent(targetUrl)}`
+    );
+}
+
+function buildSleepUrl(targetUrl) {
+    return chrome.runtime.getURL(
+        `sleep/sleep.html?target=${encodeURIComponent(targetUrl)}`
+    );
+}
+
+async function sendMessageToTab(tabId, message) {
+    try {
+        return await chrome.tabs.sendMessage(tabId, message);
+    } catch {
+        return null;
+    }
+}
+
+async function showInjectedBlocker(tabId, targetUrl) {
+    const response = await sendMessageToTab(tabId, {
+        type: "BZG_SHOW_BLOCKER",
+        targetUrl
+    });
+
+    return response?.ok === true;
+}
+
+async function hideInjectedBlocker(tabId) {
+    await sendMessageToTab(tabId, { type: "BZG_HIDE_BLOCKER" });
+}
+
+async function hardRedirectToFocus(tabId, targetUrl) {
+    await chrome.tabs.update(tabId, { url: buildFocusUrl(targetUrl) });
+}
+
+async function hardRedirectToSleep(tabId, targetUrl) {
+    await chrome.tabs.update(tabId, { url: buildSleepUrl(targetUrl) });
+}
+
+async function enforceFocusBlock(tabId, targetUrl) {
+    const shown = await showInjectedBlocker(tabId, targetUrl);
+    if (shown) return;
+
+    await hardRedirectToFocus(tabId, targetUrl);
+}
+
 async function releaseGuardPageTabs(pagePath) {
     const tabs = await chrome.tabs.query({});
     const pageUrl = chrome.runtime.getURL(pagePath);
@@ -110,7 +159,16 @@ async function releaseGuardPageTabs(pagePath) {
     }
 }
 
-async function handleNavigation(details) {
+async function hideInjectedBlockersOnAllTabs() {
+    const tabs = await chrome.tabs.query({});
+
+    for (const tab of tabs) {
+        if (tab.id === undefined) continue;
+        await hideInjectedBlocker(tab.id);
+    }
+}
+
+async function handleNavigation(details, options = { allowOverlay: false }) {
     if (details.frameId !== 0) return;
 
     const data = await chrome.storage.local.get([
@@ -127,40 +185,41 @@ async function handleNavigation(details) {
     const { sleepStartSeconds, sleepEndSeconds } = getSleepSettings(data);
     const { unlockDurationEnabled, eepyTimeEnabled } = getFeatureFlags(data);
 
-    const now = Date.now();
+    const tabId = details.tabId;
+    if (tabId === undefined || tabId < 0) return;
 
-    if (!shouldBlockUrl(details.url, blocked)) {
+    const isBlockedTarget = shouldBlockUrl(details.url, blocked);
+    if (!isBlockedTarget) {
+        if (options.allowOverlay) {
+            await hideInjectedBlocker(tabId);
+        }
         return;
     }
 
-    if (eepyTimeEnabled && isInSleepWindow(now, sleepStartSeconds, sleepEndSeconds)) {
-        const sleepBlockUrl = chrome.runtime.getURL(
-            `sleep/sleep.html?target=${encodeURIComponent(details.url)}`
-        );
+    const now = Date.now();
+    const sleepWindowActive = eepyTimeEnabled && isInSleepWindow(now, sleepStartSeconds, sleepEndSeconds);
 
-        chrome.tabs.update(details.tabId, { url: sleepBlockUrl });
+    if (sleepWindowActive) {
+        await hardRedirectToSleep(tabId, details.url);
         return;
     }
 
     if (!unlockDurationEnabled) {
+        await hideInjectedBlocker(tabId);
         return;
     }
 
     if (now < unlockUntil) {
+        await hideInjectedBlocker(tabId);
         return;
     }
 
-    const redirectUrl = chrome.runtime.getURL(
-        `focus/focus.html?target=${encodeURIComponent(details.url)}`
-    );
+    if (!options.allowOverlay) {
+        return;
+    }
 
-    chrome.tabs.update(details.tabId, { url: redirectUrl });
-    return;
+    await enforceFocusBlock(tabId, details.url);
 }
-
-chrome.webNavigation.onBeforeNavigate.addListener(handleNavigation);
-chrome.webNavigation.onHistoryStateUpdated.addListener(handleNavigation);
-
 
 async function checkExpiration() {
     const data = await chrome.storage.local.get([
@@ -187,10 +246,11 @@ async function checkExpiration() {
 
     const unlockExpired = unlockDurationEnabled && unlockUntil && now >= unlockUntil;
 
+    if (!unlockDurationEnabled && unlockUntil) {
+        await chrome.storage.local.set({ unlockUntil: 0 });
+    }
+
     if (!unlockExpired && !sleepWindowJustStarted && !firstRunInSleepWindow && !sleepWindowEnded) {
-        if (!unlockDurationEnabled && unlockUntil) {
-            await chrome.storage.local.set({ unlockUntil: 0 });
-        }
         return;
     }
 
@@ -204,12 +264,8 @@ async function checkExpiration() {
     for (const tab of tabs) {
         if (!tab.url || tab.id === undefined) continue;
 
-        const redirectUrl = chrome.runtime.getURL(
-            `sleep/sleep.html?target=${encodeURIComponent(tab.url)}`
-        );
-
         if (sleepWindowActive && shouldBlockUrl(tab.url, blocked)) {
-            chrome.tabs.update(tab.id, { url: redirectUrl });
+            await hardRedirectToSleep(tab.id, tab.url);
             continue;
         }
 
@@ -224,12 +280,112 @@ async function checkExpiration() {
         }
 
         if (unlockExpired && shouldBlockUrl(tab.url, blocked)) {
-            chrome.tabs.reload(tab.id);
+            await enforceFocusBlock(tab.id, tab.url);
         }
     }
 }
 
-setInterval(checkExpiration, 1000);
+async function verifyInjectedBlockers() {
+    const data = await chrome.storage.local.get([
+        "unlockUntil",
+        "blocked",
+        "sleepStartSeconds",
+        "sleepEndSeconds",
+        "unlockDurationEnabled",
+        "eepyTimeEnabled"
+    ]);
+
+    const unlockUntil = data.unlockUntil || 0;
+    const blocked = data.blocked || {};
+    const { sleepStartSeconds, sleepEndSeconds } = getSleepSettings(data);
+    const { unlockDurationEnabled, eepyTimeEnabled } = getFeatureFlags(data);
+
+    if (!unlockDurationEnabled) {
+        return;
+    }
+
+    const now = Date.now();
+    const sleepWindowActive = eepyTimeEnabled && isInSleepWindow(now, sleepStartSeconds, sleepEndSeconds);
+    if (sleepWindowActive) {
+        return;
+    }
+
+    if (now < unlockUntil) {
+        return;
+    }
+
+    const tabs = await chrome.tabs.query({});
+
+    for (const tab of tabs) {
+        if (!tab.url || tab.id === undefined) continue;
+        if (!shouldBlockUrl(tab.url, blocked)) continue;
+
+        const response = await sendMessageToTab(tab.id, { type: "BZG_VERIFY_BLOCKER" });
+        if (response?.present) continue;
+
+        await enforceFocusBlock(tab.id, tab.url);
+    }
+}
+
+async function handleOverlayTampered(tabId) {
+    if (tabId === undefined || tabId < 0) return;
+
+    const tab = await chrome.tabs.get(tabId).catch(() => null);
+    if (!tab || !tab.url) return;
+
+    const data = await chrome.storage.local.get([
+        "blocked",
+        "unlockUntil",
+        "sleepStartSeconds",
+        "sleepEndSeconds",
+        "unlockDurationEnabled",
+        "eepyTimeEnabled"
+    ]);
+
+    const blocked = data.blocked || {};
+    if (!shouldBlockUrl(tab.url, blocked)) return;
+
+    const { sleepStartSeconds, sleepEndSeconds } = getSleepSettings(data);
+    const { unlockDurationEnabled, eepyTimeEnabled } = getFeatureFlags(data);
+    const unlockUntil = data.unlockUntil || 0;
+
+    const now = Date.now();
+
+    if (eepyTimeEnabled && isInSleepWindow(now, sleepStartSeconds, sleepEndSeconds)) {
+        await hardRedirectToSleep(tabId, tab.url);
+        return;
+    }
+
+    if (!unlockDurationEnabled) {
+        return;
+    }
+
+    if (now < unlockUntil) {
+        return;
+    }
+
+    await hardRedirectToFocus(tabId, tab.url);
+}
+
+chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+    void handleNavigation(details, { allowOverlay: false });
+});
+
+chrome.webNavigation.onCompleted.addListener((details) => {
+    void handleNavigation(details, { allowOverlay: true });
+});
+
+chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
+    void handleNavigation(details, { allowOverlay: true });
+});
+
+chrome.runtime.onMessage.addListener((message, sender) => {
+    if (!message || !message.type) return;
+
+    if (message.type === "BZG_OVERLAY_TAMPERED") {
+        void handleOverlayTampered(sender.tab?.id);
+    }
+});
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== "local") return;
@@ -238,7 +394,25 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         void releaseGuardPageTabs("sleep/sleep.html");
     }
 
+    if (changes.eepyTimeEnabled && changes.eepyTimeEnabled.newValue === true) {
+        void checkExpiration();
+    }
+
     if (changes.unlockDurationEnabled && changes.unlockDurationEnabled.newValue === false) {
+        void chrome.storage.local.set({ unlockUntil: 0 });
         void releaseGuardPageTabs("focus/focus.html");
+        void hideInjectedBlockersOnAllTabs();
+    }
+
+    if (changes.unlockDurationEnabled && changes.unlockDurationEnabled.newValue === true) {
+        void verifyInjectedBlockers();
     }
 });
+
+setInterval(() => {
+    void checkExpiration();
+}, 1000);
+
+setInterval(() => {
+    void verifyInjectedBlockers();
+}, OVERLAY_VERIFY_INTERVAL_MS);
