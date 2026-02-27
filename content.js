@@ -11,6 +11,118 @@ const phrases = [
 let overlayRequired = false;
 let currentPhrase = "";
 let blockerObserver = null;
+let pageFrozen = false;
+
+const scrollLockState = {
+    scrollY: 0,
+    htmlOverflow: "",
+    bodyOverflow: "",
+    bodyPosition: "",
+    bodyTop: "",
+    bodyLeft: "",
+    bodyRight: "",
+    bodyWidth: ""
+};
+
+const scrollKeys = new Set([
+    " ",
+    "PageUp",
+    "PageDown",
+    "ArrowUp",
+    "ArrowDown",
+    "Home",
+    "End"
+]);
+
+function isTextEntryTarget(target) {
+    if (!(target instanceof HTMLElement)) return false;
+    if (target.isContentEditable) return true;
+
+    const tag = target.tagName;
+    return tag === "INPUT" || tag === "TEXTAREA";
+}
+
+function preventWheelScroll(event) {
+    if (!overlayRequired) return;
+    event.preventDefault();
+}
+
+function preventTouchScroll(event) {
+    if (!overlayRequired) return;
+    event.preventDefault();
+}
+
+function preventKeyboardScroll(event) {
+    if (!overlayRequired) return;
+    if (isTextEntryTarget(event.target)) return;
+    if (!scrollKeys.has(event.key)) return;
+
+    event.preventDefault();
+}
+
+function addScrollLockListeners() {
+    window.addEventListener("wheel", preventWheelScroll, { passive: false, capture: true });
+    window.addEventListener("touchmove", preventTouchScroll, { passive: false, capture: true });
+    window.addEventListener("keydown", preventKeyboardScroll, { passive: false, capture: true });
+}
+
+function removeScrollLockListeners() {
+    window.removeEventListener("wheel", preventWheelScroll, true);
+    window.removeEventListener("touchmove", preventTouchScroll, true);
+    window.removeEventListener("keydown", preventKeyboardScroll, true);
+}
+
+function freezePage() {
+    if (pageFrozen) return;
+
+    const html = document.documentElement;
+    const body = document.body;
+
+    scrollLockState.scrollY = window.scrollY || 0;
+    scrollLockState.htmlOverflow = html.style.overflow;
+    html.style.overflow = "hidden";
+
+    if (body) {
+        scrollLockState.bodyOverflow = body.style.overflow;
+        scrollLockState.bodyPosition = body.style.position;
+        scrollLockState.bodyTop = body.style.top;
+        scrollLockState.bodyLeft = body.style.left;
+        scrollLockState.bodyRight = body.style.right;
+        scrollLockState.bodyWidth = body.style.width;
+
+        body.style.overflow = "hidden";
+        body.style.position = "fixed";
+        body.style.top = `-${scrollLockState.scrollY}px`;
+        body.style.left = "0";
+        body.style.right = "0";
+        body.style.width = "100%";
+    }
+
+    addScrollLockListeners();
+    pageFrozen = true;
+}
+
+function unfreezePage() {
+    if (!pageFrozen) return;
+
+    const html = document.documentElement;
+    const body = document.body;
+
+    html.style.overflow = scrollLockState.htmlOverflow;
+
+    if (body) {
+        body.style.overflow = scrollLockState.bodyOverflow;
+        body.style.position = scrollLockState.bodyPosition;
+        body.style.top = scrollLockState.bodyTop;
+        body.style.left = scrollLockState.bodyLeft;
+        body.style.right = scrollLockState.bodyRight;
+        body.style.width = scrollLockState.bodyWidth;
+    }
+
+    removeScrollLockListeners();
+    window.scrollTo(0, scrollLockState.scrollY);
+    pageFrozen = false;
+}
 
 function randomPhrase() {
     return phrases[Math.floor(Math.random() * phrases.length)];
@@ -24,6 +136,10 @@ function removeOverlay() {
     const overlay = document.getElementById(OVERLAY_ID);
     if (overlay) {
         overlay.remove();
+    }
+
+    if (!overlayRequired) {
+        unfreezePage();
     }
 }
 
@@ -139,6 +255,7 @@ function mountOverlay() {
 
     const { overlay, input } = buildOverlay();
     rootNode.appendChild(overlay);
+    freezePage();
     input.focus();
 
     return true;
