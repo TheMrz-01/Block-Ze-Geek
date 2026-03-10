@@ -5,7 +5,12 @@ const phrases = [
     " i choose distraction over progress ",
     " i am avoiding meaningful work ",
     " i accept that this does not help my goals ",
-    " this is not aligned with my future self "
+    " this is not aligned with my future self ",
+    " i am trading discipline for a quick dopamine hit ",
+    " i know this is easy now and expensive later ",
+    " i am letting impulse decide my direction ",
+    " i am choosing comfort instead of momentum ",
+    " i am delaying the life i say i want "
 ];
 
 let overlayRequired = false;
