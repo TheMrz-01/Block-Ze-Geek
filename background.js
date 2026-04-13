@@ -8,8 +8,126 @@ const BLOCKED_SITES = {
 const DEFAULT_SLEEP_START_SECONDS = 23 * 3600;
 const DEFAULT_SLEEP_END_SECONDS = 7 * 3600;
 const OVERLAY_VERIFY_INTERVAL_MS = 3000;
+const AUTO_REENABLE_MS = 60 * 60 * 1000;
+const TEMPORARY_DISABLE_WATCHDOG_ALARM = "bzg-temporary-disable-watchdog";
+const AUTO_REENABLE_ALARMS = {
+    unlockDurationEnabled: "bzg-reenable-unlock-duration",
+    eepyTimeEnabled: "bzg-reenable-eepy-time"
+};
 
 let wasSleepWindowActive = null;
+
+function getTemporaryDisableConfig(featureKey) {
+    if (featureKey === "unlockDurationEnabled") {
+        return {
+            enabledKey: "unlockDurationEnabled",
+            disabledUntilKey: "unlockDurationDisabledUntil",
+            alarmName: AUTO_REENABLE_ALARMS.unlockDurationEnabled
+        };
+    }
+
+    if (featureKey === "eepyTimeEnabled") {
+        return {
+            enabledKey: "eepyTimeEnabled",
+            disabledUntilKey: "eepyTimeDisabledUntil",
+            alarmName: AUTO_REENABLE_ALARMS.eepyTimeEnabled
+        };
+    }
+
+    return null;
+}
+
+async function syncTemporaryDisableAlarm(featureKey, data) {
+    const config = getTemporaryDisableConfig(featureKey);
+    if (!config) return;
+
+    const isEnabled = data[config.enabledKey] ?? true;
+    const disabledUntil = Number(data[config.disabledUntilKey]) || 0;
+
+    if (!isEnabled && disabledUntil > Date.now()) {
+        await chrome.alarms.create(config.alarmName, { when: disabledUntil });
+        return;
+    }
+
+    await chrome.alarms.clear(config.alarmName);
+}
+
+async function syncAllTemporaryDisableAlarms(data) {
+    await syncTemporaryDisableAlarm("unlockDurationEnabled", data);
+    await syncTemporaryDisableAlarm("eepyTimeEnabled", data);
+}
+
+async function normalizeTemporaryDisableStates(data) {
+    const normalized = { ...data };
+    const updates = {};
+    const now = Date.now();
+
+    if (!(normalized.unlockDurationEnabled ?? true)) {
+        const unlockDurationDisabledUntil = Number(normalized.unlockDurationDisabledUntil) || 0;
+
+        if (!unlockDurationDisabledUntil) {
+            normalized.unlockDurationDisabledUntil = now + AUTO_REENABLE_MS;
+            updates.unlockDurationDisabledUntil = normalized.unlockDurationDisabledUntil;
+        }
+
+        if (unlockDurationDisabledUntil && now >= unlockDurationDisabledUntil) {
+            normalized.unlockDurationEnabled = true;
+            normalized.unlockDurationDisabledUntil = 0;
+            normalized.unlockUntil = 0;
+            updates.unlockDurationEnabled = true;
+            updates.unlockDurationDisabledUntil = 0;
+            updates.unlockUntil = 0;
+        }
+    }
+
+    if (!(normalized.eepyTimeEnabled ?? true)) {
+        const eepyTimeDisabledUntil = Number(normalized.eepyTimeDisabledUntil) || 0;
+
+        if (!eepyTimeDisabledUntil) {
+            normalized.eepyTimeDisabledUntil = now + AUTO_REENABLE_MS;
+            updates.eepyTimeDisabledUntil = normalized.eepyTimeDisabledUntil;
+        }
+
+        if (eepyTimeDisabledUntil && now >= eepyTimeDisabledUntil) {
+            normalized.eepyTimeEnabled = true;
+            normalized.eepyTimeDisabledUntil = 0;
+            updates.eepyTimeEnabled = true;
+            updates.eepyTimeDisabledUntil = 0;
+        }
+    }
+
+    if (Object.keys(updates).length > 0) {
+        await chrome.storage.local.set(updates);
+    }
+
+    await syncAllTemporaryDisableAlarms(normalized);
+    return normalized;
+}
+
+async function initializeTemporaryDisableState() {
+    const data = await chrome.storage.local.get([
+        "unlockDurationEnabled",
+        "unlockDurationDisabledUntil",
+        "unlockUntil",
+        "eepyTimeEnabled",
+        "eepyTimeDisabledUntil"
+    ]);
+
+    await chrome.alarms.create(TEMPORARY_DISABLE_WATCHDOG_ALARM, { periodInMinutes: 1 });
+    await normalizeTemporaryDisableStates(data);
+}
+
+async function reconcileTemporaryDisableState() {
+    const data = await chrome.storage.local.get([
+        "unlockDurationEnabled",
+        "unlockDurationDisabledUntil",
+        "unlockUntil",
+        "eepyTimeEnabled",
+        "eepyTimeDisabledUntil"
+    ]);
+
+    return normalizeTemporaryDisableStates(data);
+}
 
 function parseUrl(url) {
     try {
@@ -171,14 +289,17 @@ async function hideInjectedBlockersOnAllTabs() {
 async function handleNavigation(details, options = { allowOverlay: false }) {
     if (details.frameId !== 0) return;
 
-    const data = await chrome.storage.local.get([
+    const storedData = await chrome.storage.local.get([
         "blocked",
         "unlockUntil",
+        "unlockDurationDisabledUntil",
         "sleepStartSeconds",
         "sleepEndSeconds",
         "unlockDurationEnabled",
+        "eepyTimeDisabledUntil",
         "eepyTimeEnabled"
     ]);
+    const data = await normalizeTemporaryDisableStates(storedData);
 
     const blocked = data.blocked || {};
     const unlockUntil = data.unlockUntil || 0;
@@ -222,14 +343,17 @@ async function handleNavigation(details, options = { allowOverlay: false }) {
 }
 
 async function checkExpiration() {
-    const data = await chrome.storage.local.get([
+    const storedData = await chrome.storage.local.get([
         "unlockUntil",
         "blocked",
+        "unlockDurationDisabledUntil",
         "sleepStartSeconds",
         "sleepEndSeconds",
         "unlockDurationEnabled",
+        "eepyTimeDisabledUntil",
         "eepyTimeEnabled"
     ]);
+    const data = await normalizeTemporaryDisableStates(storedData);
 
     const unlockUntil = data.unlockUntil || 0;
     const blocked = data.blocked || {};
@@ -286,14 +410,17 @@ async function checkExpiration() {
 }
 
 async function verifyInjectedBlockers() {
-    const data = await chrome.storage.local.get([
+    const storedData = await chrome.storage.local.get([
         "unlockUntil",
         "blocked",
+        "unlockDurationDisabledUntil",
         "sleepStartSeconds",
         "sleepEndSeconds",
         "unlockDurationEnabled",
+        "eepyTimeDisabledUntil",
         "eepyTimeEnabled"
     ]);
+    const data = await normalizeTemporaryDisableStates(storedData);
 
     const unlockUntil = data.unlockUntil || 0;
     const blocked = data.blocked || {};
@@ -333,14 +460,17 @@ async function handleOverlayTampered(tabId) {
     const tab = await chrome.tabs.get(tabId).catch(() => null);
     if (!tab || !tab.url) return;
 
-    const data = await chrome.storage.local.get([
+    const storedData = await chrome.storage.local.get([
         "blocked",
         "unlockUntil",
+        "unlockDurationDisabledUntil",
         "sleepStartSeconds",
         "sleepEndSeconds",
         "unlockDurationEnabled",
+        "eepyTimeDisabledUntil",
         "eepyTimeEnabled"
     ]);
+    const data = await normalizeTemporaryDisableStates(storedData);
 
     const blocked = data.blocked || {};
     if (!shouldBlockUrl(tab.url, blocked)) return;
@@ -387,8 +517,48 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     }
 });
 
+chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === TEMPORARY_DISABLE_WATCHDOG_ALARM) {
+        void reconcileTemporaryDisableState();
+        return;
+    }
+
+    if (alarm.name === AUTO_REENABLE_ALARMS.unlockDurationEnabled) {
+        void chrome.storage.local.set({
+            unlockDurationEnabled: true,
+            unlockDurationDisabledUntil: 0,
+            unlockUntil: 0
+        });
+        return;
+    }
+
+    if (alarm.name === AUTO_REENABLE_ALARMS.eepyTimeEnabled) {
+        void chrome.storage.local.set({
+            eepyTimeEnabled: true,
+            eepyTimeDisabledUntil: 0
+        });
+    }
+});
+
 chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== "local") return;
+
+    if (
+        changes.unlockDurationEnabled ||
+        changes.unlockDurationDisabledUntil ||
+        changes.eepyTimeEnabled ||
+        changes.eepyTimeDisabledUntil
+    ) {
+        void (async () => {
+            const data = await chrome.storage.local.get([
+                "unlockDurationEnabled",
+                "unlockDurationDisabledUntil",
+                "eepyTimeEnabled",
+                "eepyTimeDisabledUntil"
+            ]);
+            await syncAllTemporaryDisableAlarms(data);
+        })();
+    }
 
     if (changes.eepyTimeEnabled && changes.eepyTimeEnabled.newValue === false) {
         void releaseGuardPageTabs("sleep/sleep.html");
@@ -408,6 +578,16 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         void verifyInjectedBlockers();
     }
 });
+
+chrome.runtime.onStartup.addListener(() => {
+    void initializeTemporaryDisableState();
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+    void initializeTemporaryDisableState();
+});
+
+void initializeTemporaryDisableState();
 
 setInterval(() => {
     void checkExpiration();

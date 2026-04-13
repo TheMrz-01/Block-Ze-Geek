@@ -4,6 +4,7 @@
     "version": "0.1",
     "description": "Block ze geeky geek geek",
     "permissions": [
+        "alarms",
         "storage",
         "tabs",
         "webNavigation"
