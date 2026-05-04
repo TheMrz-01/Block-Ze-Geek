@@ -1,4 +1,5 @@
 const OVERLAY_ID = "bzg-overlay-root";
+const SENTENCES_TYPED_COUNT_KEY = "sentencesTypedCount";
 
 const phrases = [
     " yes i want to waste my time ",
@@ -167,6 +168,17 @@ async function unlockAndClose() {
     removeOverlay();
 }
 
+async function getSentencesTypedCount() {
+    const data = await chrome.storage.local.get([SENTENCES_TYPED_COUNT_KEY]);
+    return Number(data[SENTENCES_TYPED_COUNT_KEY]) || 0;
+}
+
+async function incrementSentencesTypedCount() {
+    const nextCount = (await getSentencesTypedCount()) + 1;
+    await chrome.storage.local.set({ [SENTENCES_TYPED_COUNT_KEY]: nextCount });
+    return nextCount;
+}
+
 function buildOverlay() {
     const overlay = document.createElement("div");
     overlay.id = OVERLAY_ID;
@@ -213,6 +225,19 @@ function buildOverlay() {
         "font-size: 15px"
     ].join(";"));
 
+    const counter = document.createElement("p");
+    counter.textContent = "Sentences typed: 0";
+    counter.setAttribute("style", [
+        "margin: 0 0 16px",
+        "color: #a8a8a8",
+        "font-size: 13px"
+    ].join(";"));
+
+    void getSentencesTypedCount().then((count) => {
+        if (!counter.isConnected) return;
+        counter.textContent = `Sentences typed: ${count}`;
+    });
+
     const input = document.createElement("input");
     input.type = "text";
     input.placeholder = "Type the sentence exactly";
@@ -235,6 +260,8 @@ function buildOverlay() {
         if (event.key !== "Enter") return;
 
         if (input.value.trim() === currentPhrase.trim()) {
+            const nextCount = await incrementSentencesTypedCount();
+            counter.textContent = `Sentences typed: ${nextCount}`;
             await unlockAndClose();
             return;
         }
@@ -245,6 +272,7 @@ function buildOverlay() {
     card.appendChild(title);
     card.appendChild(hint);
     card.appendChild(phraseBox);
+    card.appendChild(counter);
     card.appendChild(input);
     overlay.appendChild(card);
 

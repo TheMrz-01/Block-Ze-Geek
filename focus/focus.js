@@ -11,14 +11,32 @@ const phrases = [
     " i am delaying the life i say i want "
 ];
 
+const SENTENCES_TYPED_COUNT_KEY = "sentencesTypedCount";
+
 const params = new URLSearchParams(window.location.search);
 const target = params.get("target");
 
 const challengeElement = document.querySelector(".container #challenge");
+const sentenceCountElement = document.querySelector(".container #sentenceCount");
 const input = document.querySelector(".container #input");
 
 const phrase = phrases[Math.floor(Math.random() * phrases.length)];
 challengeElement.textContent = `"${phrase}"`;
+
+async function getSentencesTypedCount() {
+    const data = await chrome.storage.local.get([SENTENCES_TYPED_COUNT_KEY]);
+    return Number(data[SENTENCES_TYPED_COUNT_KEY]) || 0;
+}
+
+async function incrementSentencesTypedCount() {
+    const nextCount = (await getSentencesTypedCount()) + 1;
+    await chrome.storage.local.set({ [SENTENCES_TYPED_COUNT_KEY]: nextCount });
+    return nextCount;
+}
+
+void getSentencesTypedCount().then((count) => {
+    sentenceCountElement.textContent = `Sentences typed: ${count}`;
+});
 
 input.addEventListener("paste", e => e.preventDefault());
 input.addEventListener("contextmenu", e => e.preventDefault());
@@ -26,6 +44,8 @@ input.addEventListener("contextmenu", e => e.preventDefault());
 input.addEventListener("keydown", async (event) => {
     if (event.key === "Enter") {
         if (input.value.trim() === phrase.trim()) {
+            const nextCount = await incrementSentencesTypedCount();
+            sentenceCountElement.textContent = `Sentences typed: ${nextCount}`;
 
             const data = await chrome.storage.local.get([
                 "unlockDurationMs",

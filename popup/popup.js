@@ -233,7 +233,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         unlockDurationStatus.textContent = unlockDurationEnabled
             ? "Enabled"
             : getDisabledStatusText(unlockDurationDisabledUntil);
-        toggleUnlockDuration.textContent = unlockDurationEnabled ? "Disable for 1 Hour" : "Enable Now";
+        toggleUnlockDuration.textContent = unlockDurationEnabled ? "Disable" : "Enable";
 
         unlockControls.classList.toggle("section-disabled", !unlockDurationEnabled);
         selectedTime.classList.toggle("is-disabled", !unlockDurationEnabled);
@@ -249,7 +249,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         eepyTimeStatus.textContent = eepyTimeEnabled
             ? "Enabled"
             : getDisabledStatusText(eepyTimeDisabledUntil);
-        toggleEepyTime.textContent = eepyTimeEnabled ? "Disable for 1 Hour" : "Enable Now";
+        toggleEepyTime.textContent = eepyTimeEnabled ? "Disable" : "Enable";
 
         eepyControls.classList.toggle("section-disabled", !eepyTimeEnabled);
         sleepStartTime.classList.toggle("is-disabled", !eepyTimeEnabled);
