@@ -26,10 +26,15 @@ input::placeholder {
     color: #9f9f9f;
 }
 
-.countText {
+.statsText {
     margin: 0 0 14px;
     color: #888;
     font-size: 13px;
+    line-height: 1.5;
+}
+
+.statsText p {
+    margin: 0;
 }
 
 span {

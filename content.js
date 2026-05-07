@@ -1,5 +1,12 @@
 const OVERLAY_ID = "bzg-overlay-root";
-const SENTENCES_TYPED_COUNT_KEY = "sentencesTypedCount";
+const DEFAULT_UNLOCK_MS = 300000;
+const DAILY_STATS_DATE_KEY = "dailyStatsDate";
+const DAILY_SENTENCES_TYPED_KEY = "dailySentencesTypedCount";
+const DAILY_WASTED_TIME_MS_KEY = "dailyWastedTimeMs";
+const TOTAL_WASTED_TIME_MS_KEY = "totalWastedTimeMs";
+const LEGACY_SENTENCES_TYPED_COUNT_KEY = "sentencesTypedCount";
+const TYPING_STATS_RESET_VERSION_KEY = "typingStatsResetVersion";
+const TYPING_STATS_RESET_VERSION = 1;
 
 const phrases = [
     " yes i want to waste my time ",
@@ -149,15 +156,106 @@ function removeOverlay() {
     }
 }
 
-async function unlockAndClose() {
+function getTodayKey() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
+function formatWastedTime(ms) {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+        return `${hours}h ${minutes}m ${seconds}s`;
+    }
+
+    if (minutes > 0) {
+        return `${minutes}m ${seconds}s`;
+    }
+
+    return `${seconds}s`;
+}
+
+function normalizeTypingStats(data) {
+    const todayKey = getTodayKey();
+    const needsDailyReset = data[DAILY_STATS_DATE_KEY] !== todayKey;
+
+    return {
+        dailyStatsDate: todayKey,
+        dailySentencesTyped: needsDailyReset ? 0 : Number(data[DAILY_SENTENCES_TYPED_KEY]) || 0,
+        dailyWastedTimeMs: needsDailyReset ? 0 : Number(data[DAILY_WASTED_TIME_MS_KEY]) || 0,
+        totalWastedTimeMs: Number(data[TOTAL_WASTED_TIME_MS_KEY]) || 0,
+        needsDailyReset
+    };
+}
+
+async function ensureTypingStatsReset() {
+    const data = await chrome.storage.local.get([TYPING_STATS_RESET_VERSION_KEY]);
+    if (data[TYPING_STATS_RESET_VERSION_KEY] === TYPING_STATS_RESET_VERSION) return;
+
+    await chrome.storage.local.set({
+        [DAILY_STATS_DATE_KEY]: getTodayKey(),
+        [DAILY_SENTENCES_TYPED_KEY]: 0,
+        [DAILY_WASTED_TIME_MS_KEY]: 0,
+        [TOTAL_WASTED_TIME_MS_KEY]: 0,
+        [LEGACY_SENTENCES_TYPED_COUNT_KEY]: 0,
+        [TYPING_STATS_RESET_VERSION_KEY]: TYPING_STATS_RESET_VERSION
+    });
+}
+
+async function getTypingStats() {
+    await ensureTypingStatsReset();
+
     const data = await chrome.storage.local.get([
-        "unlockDurationMs",
-        "unlockDurationEnabled"
+        DAILY_STATS_DATE_KEY,
+        DAILY_SENTENCES_TYPED_KEY,
+        DAILY_WASTED_TIME_MS_KEY,
+        TOTAL_WASTED_TIME_MS_KEY
     ]);
+    const stats = normalizeTypingStats(data);
 
-    const durationMs = data.unlockDurationMs ?? 300000;
-    const unlockDurationEnabled = data.unlockDurationEnabled ?? true;
+    if (stats.needsDailyReset) {
+        await chrome.storage.local.set({
+            [DAILY_STATS_DATE_KEY]: stats.dailyStatsDate,
+            [DAILY_SENTENCES_TYPED_KEY]: 0,
+            [DAILY_WASTED_TIME_MS_KEY]: 0
+        });
+    }
 
+    return stats;
+}
+
+async function incrementTypingStats(wastedTimeMs) {
+    const stats = await getTypingStats();
+    const nextStats = {
+        dailyStatsDate: stats.dailyStatsDate,
+        dailySentencesTyped: stats.dailySentencesTyped + 1,
+        dailyWastedTimeMs: stats.dailyWastedTimeMs + wastedTimeMs,
+        totalWastedTimeMs: stats.totalWastedTimeMs + wastedTimeMs
+    };
+
+    await chrome.storage.local.set({
+        [DAILY_STATS_DATE_KEY]: nextStats.dailyStatsDate,
+        [DAILY_SENTENCES_TYPED_KEY]: nextStats.dailySentencesTyped,
+        [DAILY_WASTED_TIME_MS_KEY]: nextStats.dailyWastedTimeMs,
+        [TOTAL_WASTED_TIME_MS_KEY]: nextStats.totalWastedTimeMs
+    });
+
+    return nextStats;
+}
+
+function renderTypingStats(totalLine, dailyLine, stats) {
+    totalLine.textContent = `Total wasted time: ${formatWastedTime(stats.totalWastedTimeMs)}`;
+    dailyLine.textContent = `Today: ${stats.dailySentencesTyped} typed | ${formatWastedTime(stats.dailyWastedTimeMs)} wasted`;
+}
+
+async function unlockAndClose(durationMs, unlockDurationEnabled) {
     if (unlockDurationEnabled) {
         await chrome.storage.local.set({ unlockUntil: Date.now() + durationMs });
     } else {
@@ -166,17 +264,6 @@ async function unlockAndClose() {
 
     overlayRequired = false;
     removeOverlay();
-}
-
-async function getSentencesTypedCount() {
-    const data = await chrome.storage.local.get([SENTENCES_TYPED_COUNT_KEY]);
-    return Number(data[SENTENCES_TYPED_COUNT_KEY]) || 0;
-}
-
-async function incrementSentencesTypedCount() {
-    const nextCount = (await getSentencesTypedCount()) + 1;
-    await chrome.storage.local.set({ [SENTENCES_TYPED_COUNT_KEY]: nextCount });
-    return nextCount;
 }
 
 function buildOverlay() {
@@ -225,17 +312,28 @@ function buildOverlay() {
         "font-size: 15px"
     ].join(";"));
 
-    const counter = document.createElement("p");
-    counter.textContent = "Sentences typed: 0";
-    counter.setAttribute("style", [
+    const statsBox = document.createElement("div");
+    statsBox.setAttribute("style", [
         "margin: 0 0 16px",
         "color: #a8a8a8",
-        "font-size: 13px"
+        "font-size: 13px",
+        "line-height: 1.5"
     ].join(";"));
 
-    void getSentencesTypedCount().then((count) => {
-        if (!counter.isConnected) return;
-        counter.textContent = `Sentences typed: ${count}`;
+    const totalWastedTime = document.createElement("p");
+    totalWastedTime.textContent = "Total wasted time: 0s";
+    totalWastedTime.setAttribute("style", "margin: 0;");
+
+    const dailyStats = document.createElement("p");
+    dailyStats.textContent = "Today: 0 typed | 0s wasted";
+    dailyStats.setAttribute("style", "margin: 0;");
+
+    statsBox.appendChild(totalWastedTime);
+    statsBox.appendChild(dailyStats);
+
+    void getTypingStats().then((stats) => {
+        if (!statsBox.isConnected) return;
+        renderTypingStats(totalWastedTime, dailyStats, stats);
     });
 
     const input = document.createElement("input");
@@ -260,9 +358,16 @@ function buildOverlay() {
         if (event.key !== "Enter") return;
 
         if (input.value.trim() === currentPhrase.trim()) {
-            const nextCount = await incrementSentencesTypedCount();
-            counter.textContent = `Sentences typed: ${nextCount}`;
-            await unlockAndClose();
+            const data = await chrome.storage.local.get([
+                "unlockDurationMs",
+                "unlockDurationEnabled"
+            ]);
+            const durationMs = data.unlockDurationMs ?? DEFAULT_UNLOCK_MS;
+            const unlockDurationEnabled = data.unlockDurationEnabled ?? true;
+            const stats = await incrementTypingStats(durationMs);
+
+            renderTypingStats(totalWastedTime, dailyStats, stats);
+            await unlockAndClose(durationMs, unlockDurationEnabled);
             return;
         }
 
@@ -272,7 +377,7 @@ function buildOverlay() {
     card.appendChild(title);
     card.appendChild(hint);
     card.appendChild(phraseBox);
-    card.appendChild(counter);
+    card.appendChild(statsBox);
     card.appendChild(input);
     overlay.appendChild(card);
 
